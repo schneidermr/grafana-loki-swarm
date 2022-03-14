@@ -1,0 +1,43 @@
+version: '3.4'
+services:
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+     - "3000:3000"
+    networks:
+     - loki
+    volumes:
+      - grafana-data:/var/lib/grafana
+    deploy:
+      replicas: 1
+    logging:
+      driver: json-file
+  loki:
+    image: grafana/loki:latest
+    command:
+     - -config.file=/etc/loki/loki-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-data:/loki
+    networks:
+     - loki
+    configs:
+     - source: loki_config
+       target: /etc/loki/loki-config.yaml
+    logging:
+      driver: json-file
+    deploy:
+      replicas: 1
+
+networks:
+  loki:
+    driver: overlay
+volumes:
+  loki-data:
+    driver: local
+  grafana-data:
+    driver: local
+configs:
+  loki_config:
+    external: true
