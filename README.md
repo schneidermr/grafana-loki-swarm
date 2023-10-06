@@ -1,6 +1,12 @@
 # grafana-loki-swarm
 
-Grafana Loki minimal setup for Docker Swarm
+Grafana Loki minimal setup for Docker Swarm.
+
+It is not recommended to use this exact setup for production.
+
+It is supposed to a _starting point_ for people who want to run Grafana and Loki in a Docker Swarm stack.
+
+You will need to adapt it for your requirements.
 
 # Steps to Use Docker Compose File with Docker Swarm:
 
@@ -30,13 +36,20 @@ Grafana Loki minimal setup for Docker Swarm
 
    Replace `my-stack` with the name you'd like to give to your stack.
 
-4. Viewing Services
-
-   To view the services running in your stack:
-
-   ```bash
-   docker stack services my-stack
-   ```
+4. Viewing test logs
+   
+   For testing purposes, flog creates log entries every second. To view them in Grafana, follow these steps:
+   1. Find out the flog container name: 
+      ```bash
+      docker inspect $(docker ps -q -f name=<my_stack>_flog) | jq -r '.[0].Name' | sed 's/^\///'`
+      ```
+      Replace `<my-stack>` with the actual stack name you have chosen.
+   2. In Grafana, go to "Connections > Datasources > Loki > Explore" and click on "code".
+      Enter this as query code:
+      ```
+      {container="<flog_container_name>"} 
+      ```
+      Replace `<my-flog_container_name>` with the actual container name.
 
 5. Accessing Grafana
 
@@ -48,14 +61,6 @@ Grafana Loki minimal setup for Docker Swarm
 
    ```bash
    docker stack rm my-stack
-   ```
-
-7. Removing Configs
-
-   If you want to remove the configuration, after removing the stack:
-
-   ```bash
-   docker config rm loki_config
    ```
 
 Notes:
