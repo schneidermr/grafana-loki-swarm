@@ -2,16 +2,45 @@ version: '3.4'
 services:
   grafana:
     image: grafana/grafana:latest
+    depends_on:
+      - loki
     ports:
      - "3000:3000"
     networks:
      - loki
     volumes:
       - grafana-data:/var/lib/grafana
-    deploy:
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources
+        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+        apiVersion: 1
+        datasources:
+          - name: Loki
+            type: loki
+            access: proxy
+            url: http://loki:3100
+            jsonData:
+              httpHeaderName1: "X-Scope-OrgID"
+            secureJsonData:
+              httpHeaderValue1: "tenant1"
+        EOF
+        /run.sh
+    deploy: &deploy
       replicas: 1
     logging:
       driver: json-file
+#    healthcheck:
+#      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1" ]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
   loki:
     image: grafana/loki:latest
     command:
@@ -28,7 +57,32 @@ services:
     logging:
       driver: json-file
     deploy:
-      replicas: 1
+      <<: *deploy
+    depends_on:
+      - promtail
+
+  promtail:
+    deploy:
+      <<: *deploy
+    image: grafana/promtail:2.9.1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    configs:
+      - source: promtail_config
+        target: /etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml
+    depends_on:
+      - flog
+    networks:
+      - loki
+
+  flog:
+    deploy:
+      <<: *deploy
+    image: mingrammer/flog
+    command: -f json -d 1s -l
+    networks:
+      - loki
 
 networks:
   loki:
@@ -40,4 +94,6 @@ volumes:
     driver: local
 configs:
   loki_config:
+    external: true
+  promtail_config:
     external: true
